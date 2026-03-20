@@ -82,13 +82,15 @@ graph TD
 
 ## 🚀 Local Setup & Initialization
 
+> **Important:** Always start the backend server **before** accessing the frontend. The admin dashboard and worker dashboard both depend on the backend API running on port 5000.
+
 ### 1. Database & Backend Server
 ```bash
 cd backend
 npm install
 node server.js
 ```
-*Note: The backend automatically drops and seeds `schema.sql` into a fresh SQLite file. The environment is pre-seeded with 50 mock workers, sample policies, and historical events to immediately populate the Admin graphs!*
+*The backend automatically creates and seeds `schema.sql` into a fresh SQLite file on first run. The environment is pre-seeded with 50 mock workers, sample policies, and historical events to immediately populate the Admin graphs.*
 
 ### 2. Frontend Application
 ```bash
@@ -99,16 +101,25 @@ npm run dev
 *The app will run at `http://localhost:5173`. Tailwind and Vite will hot-reload automatically on edits.*
 
 ### 🔐 Demo Login Credentials
-- **Worker Login:**
-  - Phone: `9876543210` 
-  - Password: `password`
-- **Admin/Insurer Login:**
-  - Phone: `admin`
-  - Password: `admin`
+| Role | Phone | Password |
+|------|-------|----------|
+| Worker | `9876543210` | `password` |
+| Admin/Insurer | `admin` | `admin` |
 
 ---
 
-## 🎥 Recommended Hackathon Demo Flow
+## 🔧 Troubleshooting
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Admin dashboard shows "Failed to load admin dashboard" with Retry button | Backend server is not running | Run `cd backend && node server.js` first, then click Retry |
+| Redirected to login after accessing `/admin` | JWT token expired or invalid | Login again with `admin` / `admin` |
+| "Loading Admin..." spinner stuck | Backend is starting up or unresponsive | Wait a few seconds; if persists, restart backend |
+| Worker dashboard redirects to login | Token missing or expired | Login again with worker credentials |
+
+---
+
+## 🎬 Demo Workflow
 1. **Worker Onboarding**: Sign up a new worker to view the AI Risk Profiling model dynamically calculate their pricing tier based on their city choices. Mock KYC input is visible.
 2. **Worker Dashboard**: Switch to the main dashboard displaying the worker's active policy, weather risk meter, and total protected lifetime earnings.
 3. **Hero Feature (Admin Trigger)**: Log in as `admin`. Show the analytics charts (Premium vs Payout). Go to the Disruption section and manually trigger a **"Social Disruption/Curfew"** event for Chennai. Keep the node terminal visible!

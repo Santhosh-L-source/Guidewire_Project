@@ -20,16 +20,27 @@ export default function AdminHome() {
     const [triggerType, setTriggerType] = useState('Social Disruption');
     const [overview, setOverview] = useState(null);
     const [claims, setClaims] = useState([]);
+    const [loadError, setLoadError] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
+                setLoadError(null);
                 const [stats, claimsData] = await Promise.all([getAdminOverview(), getAdminClaims()]);
                 setOverview(stats);
-                setClaims(claimsData);
+                setClaims(Array.isArray(claimsData) ? claimsData : []);
             } catch (err) {
-                toast.error("Failed to fetch admin data. Please login.");
-                navigate('/login');
+                console.error('Admin data fetch error:', err);
+                const status = err?.response?.status;
+                if (status === 401 || status === 403) {
+                    toast.error("Session expired or unauthorized. Please login again.");
+                    localStorage.removeItem('token');
+                    navigate('/login');
+                } else {
+                    const msg = err?.message || 'Unknown error';
+                    setLoadError(msg);
+                    toast.error(`Failed to load admin data: ${msg}. Is the backend server running on port 5000?`);
+                }
             }
         };
         fetchData();
@@ -63,6 +74,15 @@ export default function AdminHome() {
             toast.error("Action failed");
         }
     };
+
+    if (loadError) return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+            <div className="text-red-600 font-bold text-lg">Failed to load admin dashboard</div>
+            <div className="text-slate-600 text-sm">{loadError}</div>
+            <div className="text-slate-500 text-sm">Make sure the backend server is running on <code className="bg-slate-200 px-2 py-0.5 rounded">http://localhost:5000</code></div>
+            <button onClick={() => window.location.reload()} className="mt-2 bg-brand-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-brand-700">Retry</button>
+        </div>
+    );
 
     if (!overview) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold">Loading Admin...</div>;
 
@@ -196,7 +216,7 @@ export default function AdminHome() {
                         <h2 className="text-xl font-bold text-slate-900 mt-8 mb-4">Fraud Flags & Manual Review</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                             <div className="p-4 border-b bg-yellow-50 flex gap-2 items-center text-yellow-800 text-sm font-semibold">
-                                <Activity className="w-4 h-4" /> 3 Claims flagged for manual review
+                                <Activity className="w-4 h-4" /> {claims.filter(c => c.status === 'UNDER REVIEW').length} Claim{claims.filter(c => c.status === 'UNDER REVIEW').length !== 1 ? 's' : ''} flagged for manual review
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {claims.filter(c => c.status === 'UNDER REVIEW').length === 0 ? (
