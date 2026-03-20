@@ -9,17 +9,17 @@ const router = express.Router();
 router.get('/', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
 
-    db.all(
-        `SELECT c.*, w.name as worker_name, w.city 
-     FROM claims c 
-     JOIN workers w ON c.worker_id = w.id 
-     ORDER BY date(c.created_at) DESC`,
-        [],
-        (err, claims) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json(claims);
-        }
-    );
+    try {
+        const claims = db.prepare(
+            `SELECT c.*, w.name as worker_name, w.city 
+         FROM claims c 
+         JOIN workers w ON c.worker_id = w.id 
+         ORDER BY date(c.created_at) DESC`
+        ).all();
+        res.json(claims);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Admin Manual Approval / Rejection of Held Claims
@@ -34,14 +34,12 @@ router.post('/:id/action', authenticateToken, (req, res) => {
         txnId = `TXN_${Date.now()}`;
     }
 
-    db.run(
-        `UPDATE claims SET status = ?, transaction_id = ? WHERE id = ?`,
-        [action, txnId, claimId],
-        function (err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: `Claim ${claimId} marked as ${action}` });
-        }
-    );
+    try {
+        db.prepare(`UPDATE claims SET status = ?, transaction_id = ? WHERE id = ?`).run(action, txnId, claimId);
+        res.json({ message: `Claim ${claimId} marked as ${action}` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Admin Manual Trigger (Social Disruption)

@@ -23,21 +23,21 @@ router.post('/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // 4. Save to DB
-        db.run(
+        const stmt = db.prepare(
             `INSERT INTO workers (name, phone, password, city, zone, platform, weekly_earnings, experience_years, risk_score, risk_tier, recommended_plan) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name, phone, hashedPassword, city, zone, platform, weekly_earnings, experience_years, score, tier, recommendedPlan],
-            function (err) {
-                if (err) return res.status(400).json({ error: 'Phone number already registered' });
-
-                res.status(201).json({
-                    message: 'Worker registered successfully',
-                    workerId: this.lastID,
-                    riskProfile: { score, tier, recommendedPlan }
-                });
-            }
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         );
+        const result = stmt.run(name, phone, hashedPassword, city, zone, platform, weekly_earnings, experience_years, score, tier, recommendedPlan);
+
+        res.status(201).json({
+            message: 'Worker registered successfully',
+            workerId: result.lastInsertRowid,
+            riskProfile: { score, tier, recommendedPlan }
+        });
     } catch (error) {
+        if (error.message && error.message.includes('UNIQUE constraint')) {
+            return res.status(400).json({ error: 'Phone number already registered' });
+        }
         res.status(500).json({ error: error.message });
     }
 });
@@ -51,8 +51,8 @@ router.post('/login', async (req, res) => {
         return res.json({ token, role: 'admin' });
     }
 
-    db.get(`SELECT * FROM workers WHERE phone = ?`, [phone], async (err, worker) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const worker = db.prepare(`SELECT * FROM workers WHERE phone = ?`).get(phone);
         if (!worker) return res.status(400).json({ error: 'Worker not found' });
 
         const validPassword = await bcrypt.compare(password, worker.password);
@@ -60,7 +60,9 @@ router.post('/login', async (req, res) => {
 
         const token = jwt.sign({ id: worker.id, role: 'worker', city: worker.city }, SECRET, { expiresIn: '7d' });
         res.json({ token, role: 'worker', worker });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 module.exports = router;
